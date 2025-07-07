@@ -1,0 +1,70 @@
+parameters:
+
+- name: project
+  displayName: Select project
+  type: string
+  default: Backend
+  values:
+  - Backend
+  - Frontend
+  - Mobile
+
+- name: appName
+  displayName: Enter App name
+  type: string
+
+- name: repo
+  displayName: Enter repo
+  type: string
+  default: 'gitlab.abc.com/test'
+
+variables:
+  - group: ado-library-vg
+
+trigger:
+- none
+
+stages:
+  - stage: Backend
+    condition: eq('${{ parameters.project }}', 'Backend')
+    displayName: "Backend Pipeline Creation"
+    steps:
+      - script: |
+          git remote set-url origin https://$(ADO-USER):$(ADO-PAT)@dev.azure.com/my-org/my-project/_git/test
+          git status
+          git config user.email "me@abc.com"
+          git config user.name "kmori"
+          git checkout main
+          git checkout -b ${{ parameters.appName }}-pipeline-creator
+          git push --set-upstream origin ${{ parameters.appName }}-pipeline-creator
+          # TODO - sed commands
+          git add .
+          git commit -m "pipeline creator commit"
+          git push origin HEAD:${{ parameters.appName }}-pipeline-creator
+        displayName: 'Create Pipeline file - ${{ parameters.appName }}'
+        env:
+          ADO-USER: $(ADO-USER)
+          ADO-PAT: $(ADO-PAT)
+
+      - script: |
+          curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+          python3 get-pip.py
+        displayName: 'Install pip'
+
+      - script: |
+          python3 -m pip install requests
+        displayName: 'Install python dependencies'
+
+      - script: |
+          python3 pipeline_creator.py
+        displayName: 'Run Python script'
+        workingDirectory: ado-pipeline-creator/
+        env:
+          ADO-PAT: $(ADO-PAT)
+          APP_NAME: ${{ parameters.appName }}
+          YAML_PATH: pipelines/apps/backend/${{ parameters.project }}/${{ parameters.appName }}/pipeline.yaml
+          PIPELINE_FOLDER: tests/backend/${{ parameters.project }}
+
+
+
+
